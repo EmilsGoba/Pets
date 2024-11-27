@@ -1,0 +1,117 @@
+    <script>
+        let timer = 0;
+        let timerInterval;
+        let timerStarted = false;
+
+        const pieces = document.querySelectorAll(".piece");
+        const gridCells = document.querySelectorAll(".grid-cell");
+
+        pieces.forEach(piece => {
+            piece.addEventListener("dragstart", function (e) {
+                e.dataTransfer.setData("id", e.target.id);
+                if (!timerStarted) {
+                    startTimer();
+                    timerStarted = true;
+                }
+            });
+        });
+
+        gridCells.forEach(cell => {
+            cell.addEventListener("dragover", function (e) {
+                e.preventDefault();
+            });
+
+            cell.addEventListener("drop", function (e) {
+                const id = e.dataTransfer.getData("id");
+                const draggedPiece = document.getElementById(id);
+
+                if (this.hasChildNodes()) {
+                    const existingPiece = this.firstChild;
+                    document.getElementById("pieces-container").appendChild(existingPiece);
+                }
+
+                this.appendChild(draggedPiece);
+                checkCompletion();
+            });
+        });
+
+        function startTimer() {
+            timer = 0;
+            document.getElementById("timer-display").textContent = "Time: 0s";
+            timerInterval = setInterval(() => {
+                timer++;
+                document.getElementById("timer-display").textContent = `Time: ${timer}s`;
+            }, 1000);
+        }
+
+        function shufflePieces() {
+            const container = document.getElementById("pieces-container");
+            const piecesArray = Array.from(container.children);
+            piecesArray.sort(() => Math.random() - 0.5);
+            piecesArray.forEach(piece => container.appendChild(piece));
+        }
+
+        document.getElementById("restart-puzzle").addEventListener("click", function () {
+            clearInterval(timerInterval);
+            timerStarted = false;
+            document.getElementById("timer-display").textContent = "Time: 0s";
+
+            const grid = document.getElementById("puzzle-grid");
+            gridCells.forEach(cell => {
+                if (cell.firstChild) {
+                    const piece = cell.firstChild;
+                    document.getElementById("pieces-container").appendChild(piece);
+                }
+            });
+
+            document.getElementById("congratulations").style.display = "none";
+            shufflePieces();
+        });
+
+        function checkCompletion() {
+            const grid = document.getElementById("puzzle-grid");
+            const piecesOrder = Array.from(grid.children).map(cell =>
+                cell.firstChild ? cell.firstChild.id : null
+            );
+
+            const correctOrder = [
+                "piece_0_0", "piece_0_1", "piece_0_2", "piece_0_3", "piece_0_4",
+                "piece_1_0", "piece_1_1", "piece_1_2", "piece_1_3", "piece_1_4",
+                "piece_2_0", "piece_2_1", "piece_2_2", "piece_2_3", "piece_2_4"
+            ];
+
+            if (JSON.stringify(piecesOrder) === JSON.stringify(correctOrder)) {
+                clearInterval(timerInterval);
+                document.getElementById("congratulations").style.display = "block";
+                showUsernameModal();
+            }
+        }
+
+        function showUsernameModal() {
+            const modal = document.getElementById("username-modal");
+            modal.style.display = "block";
+        }
+
+        document.getElementById("submit-score").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+
+            fetch("/submit_score.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, solve_time: timer })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert("Score submitted!");
+                        location.reload();
+                    } else {
+                        alert("Failed to submit score.");
+                    }
+                })
+                .catch(() => alert("Error submitting score."));
+        });
+
+        shufflePieces();
+    </script>
